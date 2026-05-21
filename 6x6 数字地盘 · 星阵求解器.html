@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>6x6 数字地盘 · 星阵求解器 | 新规则：无相邻/斜邻</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Noto Sans', sans-serif;
+            background: linear-gradient(145deg, #eef2f7 0%, #e0e7ef 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .artboard {
+            max-width: 860px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(2px);
+            border-radius: 56px;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px 24px 32px 24px;
+            transition: all 0.2s ease;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #1e2b3c, #2c4c6e);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.3px;
+        }
+        .sub {
+            color: #4b5e6c;
+            font-size: 0.85rem;
+            border-top: 1px solid #cbdbe2;
+            display: inline-block;
+            padding-top: 6px;
+            opacity: 0.8;
+        }
+
+        .number-palette {
+            background: #f8fafd;
+            border-radius: 80px;
+            padding: 12px 12px;
+            margin-bottom: 28px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+            box-shadow: inset 0 1px 2px #00000008, 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .num-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 60px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.8rem;
+            background: #ffffff;
+            color: #1f2937;
+            border: 2px solid #cbd5e1;
+        }
+        .num-btn.active {
+            transform: scale(1.08);
+            background: #1e3a5f;
+            border-color: #ffd966 !important;
+            color: white;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+        }
+        .num-btn:hover {
+            background: #e6edf4;
+            transform: scale(1.02);
+        }
+
+        .current-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: #ffffffc9;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 8px 24px;
+            border-radius: 100px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .current-number {
+            background: #1e3a5f;
+            width: 44px;
+            height: 44px;
+            border-radius: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.7rem;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .current-label {
+            font-weight: 500;
+            color: #2c3e4e;
+            font-size: 1rem;
+        }
+        .key-hint {
+            font-size: 0.7rem;
+            background: #eef2f9;
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 40px;
+            margin-left: 12px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            background-color: #cbd5e1;
+            gap: 3px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 3px solid #eef2ff;
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.2);
+            margin-bottom: 28px;
+            aspect-ratio: 1 / 1;
+        }
+        .grid-cell {
+            transition: all 0.1s ease;
+            cursor: pointer;
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: monospace;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            color: white;
+            background-color: #eef2f5;
+            position: relative;
+        }
+        .grid-cell.empty {
+            background-color: #fef9e8;
+            color: #7f8c8d;
+            text-shadow: none;
+            font-weight: 400;
+        }
+        .grid-cell[data-value="1"] { background-color: #EF4444; }
+        .grid-cell[data-value="2"] { background-color: #F97316; }
+        .grid-cell[data-value="3"] { background-color: #FBBF24; color: #2d2a1e; text-shadow: none; }
+        .grid-cell[data-value="4"] { background-color: #10B981; }
+        .grid-cell[data-value="5"] { background-color: #3B82F6; }
+        .grid-cell[data-value="6"] { background-color: #A855F7; }
+        
+        /* 星星标记 - 加大尺寸 */
+        .grid-cell.star::after {
+            content: "★";
+            position: absolute;
+            top: 0px;
+            right: 2px;
+            font-size: 1.6rem;
+            color: gold;
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
+            font-weight: bold;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .grid-cell:hover {
+            filter: brightness(0.92);
+            transform: scale(0.98);
+            transition: 0.05s linear;
+            box-shadow: inset 0 0 0 2px #ffefb0;
+            z-index: 2;
+        }
+
+        .stats-panel {
+            background: #f1f5f9dd;
+            backdrop-filter: blur(8px);
+            border-radius: 32px;
+            padding: 14px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .digit-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            row-gap: 10px;
+            justify-content: center;
+            flex: 2;
+        }
+        .stat-item {
+            background: white;
+            border-radius: 60px;
+            padding: 5px 16px 5px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: white;
+        }
+        .stat-count {
+            font-weight: 700;
+            color: #1e293b;
+            min-width: 32px;
+            text-align: center;
+        }
+        .reset-btn, .solve-btn {
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: 0.15s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .reset-btn {
+            background: #2c3e50;
+            color: white;
+        }
+        .reset-btn:hover {
+            background: #1e2f3c;
+            transform: translateY(-2px);
+        }
+        .solve-btn {
+            background: #d97706;
+            color: white;
+        }
+        .solve-btn:hover {
+            background: #b45309;
+            transform: translateY(-2px);
+        }
+        .result-area {
+            margin-top: 12px;
+            background: #eef2f9cc;
+            backdrop-filter: blur(4px);
+            border-radius: 28px;
+            padding: 12px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .result-text {
+            font-weight: 600;
+            background: #1e293b;
+            color: #facc15;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+        }
+        .clear-star-btn {
+            background: #475569;
+            border: none;
+            padding: 6px 20px;
+            border-radius: 40px;
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .toast-msg {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293bdd;
+            backdrop-filter: blur(12px);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            z-index: 999;
+            transition: opacity 0.2s;
+            opacity: 0;
+        }
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #5b6f82;
+            margin-top: 20px;
+        }
+        @media (max-width: 620px) {
+            .artboard { padding: 16px; }
+            .num-btn { width: 55px; height: 55px; font-size: 1.5rem; }
+            .grid-cell { font-size: 1.2rem; }
+            .grid-cell.star::after { font-size: 1.4rem; top: 0px; right: 1px; }
+            .reset-btn, .solve-btn { padding: 8px 18px; font-size: 0.8rem; }
+            .key-hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="artboard">
+    <div class="header">
+        <h1>✨ 数字地盘 · 星阵求解器</h1>
+        <div class="sub">新规则：每行/每列最多1星 · 每数字地盘最多1星 · 星星不可相邻或斜对 (八邻域禁止)</div>
+    </div>
+
+    <div class="number-palette" id="numberPalette"></div>
+
+    <div class="current-indicator">
+        <span class="current-label">✏️ 当前选中数字</span>
+        <div class="current-number" id="currentNumberBox">1</div>
+        <span class="key-hint">💡 按键盘 1-6 直接切换</span>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <div class="stats-panel">
+        <div class="digit-stats" id="statsContainer"></div>
+        <div style="display: flex; gap: 12px;">
+            <button class="reset-btn" id="resetBtn">
+                <span>🔄</span> 清空所有方格
+            </button>
+            <button class="solve-btn" id="solveBtn">
+                <span>✨</span> 求解最大星星
+            </button>
+        </div>
+    </div>
+
+    <div class="result-area" id="resultArea">
+        <span>🌟 求解结果：</span>
+        <span class="result-text" id="resultText">未求解</span>
+        <button class="clear-star-btn" id="clearStarsBtn">🗑️ 清除星标</button>
+    </div>
+
+    <footer>💡 点击数字/按键盘1-6切换画笔 → 点击方格填入数字(彩色地盘) → 点击求解 → 星星不可相邻/斜邻</footer>
+</div>
+
+<div id="toastMsg" class="toast-msg"></div>
+
+<script>
+    // ---------- 配置 ----------
+    const DIGITS = [1, 2, 3, 4, 5, 6];
+    const GRID_SIZE = 6;
+    let gridState = [];          // 每个格子填入的数字 1-6 或 null
+    let currentDigit = 1;
+    let currentStars = [];       // 当前显示的星星位置 {row, col}
+    let bestSolution = null;
+
+    // DOM 元素
+    const gridContainer = document.getElementById('grid');
+    const numberPalette = document.getElementById('numberPalette');
+    const currentNumberBox = document.getElementById('currentNumberBox');
+    const statsContainer = document.getElementById('statsContainer');
+    const resetBtn = document.getElementById('resetBtn');
+    const solveBtn = document.getElementById('solveBtn');
+    const clearStarsBtn = document.getElementById('clearStarsBtn');
+    const resultTextSpan = document.getElementById('resultText');
+    const toastMsg = document.getElementById('toastMsg');
+
+    function showToast(message, duration = 1600) {
+        toastMsg.textContent = message;
+        toastMsg.style.opacity = '1';
+        setTimeout(() => { toastMsg.style.opacity = '0'; }, duration);
+    }
+
+    // ---------- 统计 ----------
+    function updateStatistics() {
+        const countMap = new Map();
+        DIGITS.forEach(d => countMap.set(d, 0));
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const val = gridState[i][j];
+                if (val !== null && countMap.has(val)) countMap.set(val, countMap.get(val) + 1);
+            }
+        }
+        statsContainer.innerHTML = '';
+        const badgeColors = {1:'#EF4444',2:'#F97316',3:'#FBBF24',4:'#10B981',5:'#3B82F6',6:'#A855F7'};
+        for (let d of DIGITS) {
+            const count = countMap.get(d);
+            const statDiv = document.createElement('div');
+            statDiv.className = 'stat-item';
+            statDiv.innerHTML = `
+                <div class="stat-badge" style="background: ${badgeColors[d]}; color: ${d===3?'#2d2a1e':'white'};">${d}</div>
+                <span>数字 ${d}</span>
+                <span class="stat-count">${count}</span>
+            `;
+            statsContainer.appendChild(statDiv);
+        }
+    }
+
+    function updateCellUI(cell, value, hasStar = false) {
+        if (value === null || value === undefined) {
+            cell.textContent = '';
+            cell.classList.add('empty');
+            cell.removeAttribute('data-value');
+        } else {
+            cell.textContent = value;
+            cell.classList.remove('empty');
+            cell.setAttribute('data-value', value);
+        }
+        if (hasStar) cell.classList.add('star');
+        else cell.classList.remove('star');
+    }
+
+    function renderGridFromState() {
+        const cells = document.querySelectorAll('.grid-cell');
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const idx = i * GRID_SIZE + j;
+                const cell = cells[idx];
+                if (cell) {
+                    const value = gridState[i][j];
+                    const hasStar = currentStars.some(s => s.row === i && s.col === j);
+                    updateCellUI(cell, value, hasStar);
+                }
+            }
+        }
+        updateStatistics();
+    }
+
+    // ---------- 操作函数 ----------
+    function clearStarsDisplay() {
+        currentStars = [];
+        renderGridFromState();
+        resultTextSpan.textContent = "未求解";
+        showToast("已清除星标", 1000);
+    }
+
+    function resetAllCells() {
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) gridState[i][j] = null;
+        }
+        currentStars = [];
+        bestSolution = null;
+        resultTextSpan.textContent = "未求解";
+        renderGridFromState();
+        showToast("已重置所有数字", 1000);
+    }
+
+    function setCellDigit(row, col, digit) {
+        if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return;
+        if (gridState[row][col] === digit) return;
+        gridState[row][col] = digit;
+        if (currentStars.length > 0) {
+            currentStars = [];
+            resultTextSpan.textContent = "未求解";
+        }
+        bestSolution = null;
+        renderGridFromState();
+    }
+
+    function buildGrid() {
+        gridContainer.innerHTML = '';
+        gridState = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell empty';
+                cell.textContent = '';
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                cell.addEventListener('click', (function(r,c){ return () => setCellDigit(r,c,currentDigit); })(i,j));
+                gridContainer.appendChild(cell);
+            }
+        }
+        currentStars = [];
+        renderGridFromState();
+    }
+
+    function setCurrentDigit(digit) {
+        if (digit < 1 || digit > 6) return false;
+        if (currentDigit === digit) return false;
+        currentDigit = digit;
+        highlightActiveDigit(currentDigit);
+        showToast(`🔢 当前画笔切换为数字 ${digit}`, 800);
+        return true;
+    }
+
+    function highlightActiveDigit(digit) {
+        const btns = document.querySelectorAll('.num-btn');
+        btns.forEach(btn => {
+            const btnDigit = parseInt(btn.getAttribute('data-digit'),10);
+            if (btnDigit === digit) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        currentNumberBox.textContent = digit;
+        const badgePreview = {1:'#EF4444',2:'#F97316',3:'#FBBF24',4:'#10B981',5:'#3B82F6',6:'#A855F7'};
+        currentNumberBox.style.backgroundColor = badgePreview[digit];
+        currentNumberBox.style.color = (digit===3)?'#2d2a1e':'white';
+    }
+
+    function buildNumberPalette() {
+        numberPalette.innerHTML = '';
+        const colorMap = {1:'#EF4444',2:'#F97316',3:'#FBBF24',4:'#10B981',5:'#3B82F6',6:'#A855F7'};
+        DIGITS.forEach(d => {
+            const btn = document.createElement('button');
+            btn.className = 'num-btn';
+            btn.textContent = d;
+            btn.setAttribute('data-digit', d);
+            btn.style.backgroundColor = '#ffffff';
+            btn.style.border = `2px solid ${colorMap[d]}`;
+            btn.addEventListener('click', (e) => { e.stopPropagation(); setCurrentDigit(d); });
+            numberPalette.appendChild(btn);
+        });
+        highlightActiveDigit(1);
+        currentDigit = 1;
+    }
+
+    // ========== 新规则冲突检测 ==========
+    // 规则：
+    // 1. 每行每列最多一颗星星 -> 行相同或列相同直接冲突
+    // 2. 不能相邻（八邻域内禁止） -> 切比雪夫距离 ≤ 1 即冲突
+    function isConflict(star1, star2) {
+        // 同行或同列 => 冲突
+        if (star1.row === star2.row || star1.col === star2.col) return true;
+        // 八邻域内（包括对角）=> 冲突
+        if (Math.abs(star1.row - star2.row) <= 1 && Math.abs(star1.col - star2.col) <= 1) return true;
+        return false;
+    }
+
+    function noConflictWithList(newStar, starList) {
+        for (let s of starList) {
+            if (isConflict(newStar, s)) return false;
+        }
+        return true;
+    }
+
+    // 构建每个数字的地盘列表
+    function buildTerritories() {
+        const territories = new Map();
+        for (let d of DIGITS) territories.set(d, []);
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const val = gridState[i][j];
+                if (val !== null && territories.has(val)) {
+                    territories.get(val).push({ row: i, col: j });
+                }
+            }
+        }
+        return territories;
+    }
+
+    // 回溯搜索：每个数字地盘最多选一颗，满足新冲突规则
+    function findBestStars() {
+        const territories = buildTerritories();
+        const digitsOrder = DIGITS.slice(); // 1..6
+        let best = { stars: [], count: 0 };
+
+        function backtrack(idx, selected) {
+            if (idx === digitsOrder.length) {
+                if (selected.length > best.count) {
+                    best = { stars: [...selected], count: selected.length };
+                }
+                return;
+            }
+            const digit = digitsOrder[idx];
+            const cells = territories.get(digit) || [];
+            // 剪枝：剩余地盘数最多全选，也无法超过当前最优
+            if (selected.length + (digitsOrder.length - idx) <= best.count) return;
+
+            // 不放星星
+            backtrack(idx + 1, selected);
+
+            // 尝试在该地盘的每个格子放星星
+            for (let cell of cells) {
+                if (noConflictWithList(cell, selected)) {
+                    selected.push(cell);
+                    backtrack(idx + 1, selected);
+                    selected.pop();
+                }
+            }
+        }
+
+        backtrack(0, []);
+        return best;
+    }
+
+    function solveAndDisplay() {
+        if (currentStars.length > 0) currentStars = [];
+        const territories = buildTerritories();
+        let totalCells = 0;
+        for (let d of DIGITS) totalCells += territories.get(d).length;
+        if (totalCells === 0) {
+            resultTextSpan.textContent = "无任何数字，无法求解";
+            showToast("请先填入数字再求解", 1500);
+            return;
+        }
+
+        const solution = findBestStars();
+        if (solution.count === 0) {
+            resultTextSpan.textContent = "无可行放置方案";
+            currentStars = [];
+            renderGridFromState();
+            showToast("没有找到可行星星位置", 1500);
+            return;
+        }
+
+        currentStars = solution.stars;
+        renderGridFromState();
+        resultTextSpan.textContent = `最大星星数: ${solution.count} ✨`;
+        showToast(`求解完成！共放置 ${solution.count} 颗星星，无相邻/斜邻`, 1800);
+    }
+
+    function clearStarsOnly() {
+        if (currentStars.length === 0) {
+            showToast("当前没有星标", 1000);
+            return;
+        }
+        currentStars = [];
+        renderGridFromState();
+        resultTextSpan.textContent = "未求解";
+        showToast("星标已清除", 1000);
+    }
+
+    function bindEvents() {
+        resetBtn.addEventListener('click', resetAllCells);
+        solveBtn.addEventListener('click', solveAndDisplay);
+        clearStarsBtn.addEventListener('click', clearStarsOnly);
+        window.addEventListener('keydown', (e) => {
+            const activeTag = document.activeElement?.tagName;
+            if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+            let key = e.key;
+            let digit = null;
+            if (/^[1-6]$/.test(key)) digit = parseInt(key,10);
+            if (/^Numpad[1-6]$/.test(key)) digit = parseInt(key.charAt(6),10);
+            if (digit !== null && digit >=1 && digit <=6) {
+                e.preventDefault();
+                setCurrentDigit(digit);
+            }
+        });
+    }
+
+    function init() {
+        buildNumberPalette();
+        buildGrid();
+        bindEvents();
+    }
+
+    init();
+</script>
+</body>
+</html>
