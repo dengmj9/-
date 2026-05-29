@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矩形拼图求解器 - 方格填数 & 长方形框选</title>
+    <style>
+        :root {
+            --bg: #f0f4f8;
+            --card-bg: #ffffff;
+            --primary: #4f6ef7;
+            --primary-hover: #3b54d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #e8eef5 0%, #dce3ed 30%, #eef1f7 60%, #e3e8f2 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .app-container {
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg);
+            padding: 32px 28px 28px;
+            max-width: 820px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            transition: var(--transition);
+        }
+
+        .app-title {
+            font-size: 1.7rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .app-title .icon {
+            font-size: 2rem;
+        }
+
+        /* 阶段指示器 */
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .step-dot {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background: #f1f5f9;
+            color: #94a3b8;
+            border: 2px solid #e2e8f0;
+            cursor: default;
+        }
+        .step-dot.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 4px 14px rgba(79, 110, 247, 0.35);
+            transform: scale(1.08);
+        }
+        .step-dot.done {
+            background: #dbeafe;
+            color: var(--primary);
+            border-color: #bfdbfe;
+        }
+        .step-line {
+            width: 32px;
+            height: 2px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            transition: var(--transition);
+        }
+        .step-line.done {
+            background: var(--primary);
+        }
+        .step-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-align: center;
+            margin-top: 2px;
+            transition: var(--transition);
+        }
+        .step-label.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .step-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* 控制面板 */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 0;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border-radius: var(--radius-sm);
+            padding: 6px 14px;
+            border: 1.5px solid var(--border);
+            transition: var(--transition);
+        }
+        .input-group:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.08);
+        }
+        .input-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .input-group input {
+            width: 56px;
+            padding: 7px 8px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            background: #fff;
+            color: var(--text);
+            transition: var(--transition);
+            outline: none;
+            font-family: inherit;
+        }
+        .input-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.1);
+        }
+
+        button {
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            font-family: inherit;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(79, 110, 247, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            box-shadow: 0 6px 18px rgba(79, 110, 247, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+            border: 1.5px solid #d1d5db;
+        }
+        .btn-outline:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+        .btn-warning {
+            background: var(--warning);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        .btn-warning:hover {
+            background: #d97706;
+            box-shadow: 0 6px 18px rgba(245, 158, 11, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-danger {
+            background: #fff;
+            color: var(--danger);
+            border: 1.5px solid #fecaca;
+        }
+        .btn-danger:hover {
+            background: #fef2f2;
+            border-color: #f87171;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            transform: none !important;
+        }
+
+        /* 数字选择器 */
+        .number-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+        }
+        .num-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 2px solid #e2e8f0;
+            background: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .num-btn:hover {
+            border-color: var(--primary);
+            background: #f0f4ff;
+        }
+        .num-btn.selected {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(79, 110, 247, 0.35);
+            transform: scale(1.1);
+        }
+        .num-custom {
+            width: 48px;
+            height: 38px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            background: #fff;
+            color: var(--text);
+            transition: var(--transition);
+            outline: none;
+            font-family: inherit;
+        }
+        .num-custom:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.1);
+        }
+        .num-custom.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.2);
+        }
+
+        /* Canvas容器 */
+        .canvas-wrapper {
+            position: relative;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            border: 2px solid #e2e8f0;
+            transition: var(--transition);
+            background: #fafbfc;
+            cursor: crosshair;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        .canvas-wrapper.solved {
+            border-color: var(--success);
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1);
+        }
+        canvas {
+            display: block;
+            image-rendering: auto;
+        }
+
+        /* 状态信息 */
+        .status-bar {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-align: center;
+            min-height: 22px;
+            font-weight: 500;
+        }
+        .status-bar.success {
+            color: var(--success);
+            font-weight: 600;
+        }
+        .status-bar.error {
+            color: var(--danger);
+            font-weight: 600;
+        }
+        .status-bar .coord {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* 图例 */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            font-size: 0.8rem;
+            align-items: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            flex-shrink: 0;
+        }
+
+        /* 响应式 */
+        @media (max-width: 640px) {
+            .app-container {
+                padding: 20px 12px 16px;
+                gap: 16px;
+                border-radius: 18px;
+            }
+            .app-title {
+                font-size: 1.3rem;
+            }
+            .num-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 0.75rem;
+            }
+            .num-custom {
+                width: 38px;
+                height: 30px;
+                font-size: 0.75rem;
+            }
+            button {
+                padding: 7px 12px;
+                font-size: 0.8rem;
+            }
+            .input-group input {
+                width: 40px;
+                padding: 5px 4px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="appContainer">
+        <!-- 标题 -->
+        <div class="app-title">
+            <span class="icon">🧩</span> 矩形拼图求解器
+        </div>
+
+        <!-- 阶段指示器 -->
+        <div style="display:flex;align-items:flex-start;gap:2px;flex-wrap:wrap;justify-content:center;">
+            <div class="step-group">
+                <div style="display:flex;align-items:center;gap:0;">
+                    <div class="step-dot active" id="stepDot1">1</div>
+                    <div class="step-line" id="stepLine1"></div>
+                </div>
+                <span class="step-label active" id="stepLabel1">准备阶段</span>
+            </div>
+            <div class="step-group">
+                <div style="display:flex;align-items:center;gap:0;">
+                    <div class="step-dot" id="stepDot2">2</div>
+                    <div class="step-line" id="stepLine2"></div>
+                </div>
+                <span class="step-label" id="stepLabel2">输入数据</span>
+            </div>
+            <div class="step-group">
+                <div class="step-dot" id="stepDot3">3</div>
+                <span class="step-label" id="stepLabel3">求解结果</span>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls" id="controls">
+            <!-- 准备阶段 -->
+            <div id="ctrlPrepare" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;">
+                <div class="input-group">
+                    <label>行数 n:</label>
+                    <input type="number" id="inputN" value="5" min="2" max="12" step="1">
+                </div>
+                <div class="input-group">
+                    <label>列数 m:</label>
+                    <input type="number" id="inputM" value="5" min="2" max="12" step="1">
+                </div>
+                <button class="btn-primary" id="btnGenerate">✨ 生成方格表</button>
+                <button class="btn-outline" id="btnPreset1">3×3</button>
+                <button class="btn-outline" id="btnPreset2">5×5</button>
+                <button class="btn-outline" id="btnPreset3">6×8</button>
+            </div>
+            <!-- 输入阶段 -->
+            <div id="ctrlInput" style="display:none;flex-direction:column;align-items:center;gap:12px;width:100%;">
+                <div class="number-picker" id="numberPicker">
+                    <span style="font-weight:600;color:var(--text);font-size:0.85rem;">选择数字:</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">
+                    <button class="btn-success" id="btnSolve">🔍 求解</button>
+                    <button class="btn-outline" id="btnClearAll">🗑️ 清除全部数字</button>
+                    <button class="btn-warning" id="btnRandomFill">🎲 随机填充</button>
+                    <button class="btn-outline" id="btnReset">🔄 重新设置大小</button>
+                </div>
+            </div>
+            <!-- 求解阶段 -->
+            <div id="ctrlSolve" style="display:none;flex-wrap:wrap;gap:10px;justify-content:center;">
+                <button class="btn-outline" id="btnBackToInput">↩️ 返回修改</button>
+                <button class="btn-danger" id="btnRestart">🔄 重新开始</button>
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar" id="statusBar">请输入行数和列数，然后点击"生成方格表"</div>
+
+        <!-- 图例 -->
+        <div class="legend" id="legend" style="display:none;"></div>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== DOM元素 ====================
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const canvasWrapper = document.getElementById('canvasWrapper');
+            const statusBar = document.getElementById('statusBar');
+            const legend = document.getElementById('legend');
+            const controls = document.getElementById('controls');
+
+            const ctrlPrepare = document.getElementById('ctrlPrepare');
+            const ctrlInput = document.getElementById('ctrlInput');
+            const ctrlSolve = document.getElementById('ctrlSolve');
+            const numberPicker = document.getElementById('numberPicker');
+
+            const inputN = document.getElementById('inputN');
+            const inputM = document.getElementById('inputM');
+            const btnGenerate = document.getElementById('btnGenerate');
+            const btnSolve = document.getElementById('btnSolve');
+            const btnClearAll = document.getElementById('btnClearAll');
+            const btnRandomFill = document.getElementById('btnRandomFill');
+            const btnReset = document.getElementById('btnReset');
+            const btnBackToInput = document.getElementById('btnBackToInput');
+            const btnRestart = document.getElementById('btnRestart');
+
+            // 阶段指示器
+            const stepDot1 = document.getElementById('stepDot1');
+            const stepDot2 = document.getElementById('stepDot2');
+            const stepDot3 = document.getElementById('stepDot3');
+            const stepLine1 = document.getElementById('stepLine1');
+            const stepLine2 = document.getElementById('stepLine2');
+            const stepLabel1 = document.getElementById('stepLabel1');
+            const stepLabel2 = document.getElementById('stepLabel2');
+            const stepLabel3 = document.getElementById('stepLabel3');
+
+            // ==================== 状态 ====================
+            let n = 5; // 行数
+            let m = 5; // 列数
+            let grid = []; // grid[row][col] = 数字 (0表示空)
+            let solution = null; // 求解结果: [{top, left, bottom, right, color}] 或 null
+            let currentPhase = 'prepare'; // 'prepare' | 'input' | 'solve'
+            let selectedNumber = 1; // 当前选中的数字
+            let hoverCell = null; // {row, col} 或 null
+            let cellSize = 50; // 像素
+
+            // 颜色方案 - 用于求解结果的长方形
+            const colorPalette = [
+                '#FF6B6B', '#4ECDC4', '#FFE66D', '#6BCB77', '#A78BFA',
+                '#FFB3BA', '#45B7D1', '#F9C784', '#FF8A80', '#B2EBF2',
+                '#FFD54F', '#AED581', '#CE93D8', '#FFAB91', '#80DEEA',
+                '#FFCC80', '#A5D6A7', '#EF9A9A', '#81D4FA', '#FFF176',
+                '#F48FB1', '#4DD0E1', '#FFE082', '#81C784', '#BA68C8',
+            ];
+
+            // ==================== 初始化 ====================
+            function initGrid() {
+                grid = [];
+                for (let r = 0; r < n; r++) {
+                    grid[r] = new Array(m).fill(0);
+                }
+                solution = null;
+                hoverCell = null;
+                updateCellSize();
+                resizeCanvas();
+                updatePhaseUI();
+                draw();
+            }
+
+            function updateCellSize() {
+                const maxDim = Math.max(n, m);
+                if (maxDim <= 6) cellSize = 60;
+                else if (maxDim <= 8) cellSize = 52;
+                else if (maxDim <= 10) cellSize = 45;
+                else if (maxDim <= 12) cellSize = 38;
+                else cellSize = 32;
+                // 确保canvas不超过700px
+                const maxCanvasSize = 680;
+                if (m * cellSize > maxCanvasSize) cellSize = Math.floor(maxCanvasSize / m);
+                if (n * cellSize > maxCanvasSize) cellSize = Math.floor(maxCanvasSize / n);
+                cellSize = Math.max(28, cellSize);
+            }
+
+            function resizeCanvas() {
+                canvas.width = m * cellSize;
+                canvas.height = n * cellSize;
+                canvas.style.width = canvas.width + 'px';
+                canvas.style.height = canvas.height + 'px';
+            }
+
+            // ==================== 阶段UI更新 ====================
+            function updatePhaseUI() {
+                // 隐藏所有控制面板
+                ctrlPrepare.style.display = 'none';
+                ctrlInput.style.display = 'none';
+                ctrlSolve.style.display = 'none';
+                legend.style.display = 'none';
+
+                // 更新步骤指示器
+                stepDot1.className = 'step-dot';
+                stepDot2.className = 'step-dot';
+                stepDot3.className = 'step-dot';
+                stepLine1.className = 'step-line';
+                stepLine2.className = 'step-line';
+                stepLabel1.className = 'step-label';
+                stepLabel2.className = 'step-label';
+                stepLabel3.className = 'step-label';
+
+                if (currentPhase === 'prepare') {
+                    ctrlPrepare.style.display = 'flex';
+                    stepDot1.classList.add('active');
+                    stepLabel1.classList.add('active');
+                    canvasWrapper.classList.remove('solved');
+                    statusBar.textContent = '请输入行数和列数，然后点击"生成方格表"';
+                    statusBar.className = 'status-bar';
+                } else if (currentPhase === 'input') {
+                    ctrlInput.style.display = 'flex';
+                    stepDot1.classList.add('done');
+                    stepDot2.classList.add('active');
+                    stepLine1.classList.add('done');
+                    stepLabel2.classList.add('active');
+                    canvasWrapper.classList.remove('solved');
+                    updateStatusForInput();
+                    buildNumberPicker();
+                } else if (currentPhase === 'solve') {
+                    ctrlSolve.style.display = 'flex';
+                    stepDot1.classList.add('done');
+                    stepDot2.classList.add('done');
+                    stepDot3.classList.add('active');
+                    stepLine1.classList.add('done');
+                    stepLine2.classList.add('done');
+                    stepLabel3.classList.add('active');
+                    if (solution) {
+                        canvasWrapper.classList.add('solved');
+                        statusBar.textContent = '✅ 求解成功！共找到 ' + solution.length + ' 个长方形';
+                        statusBar.className = 'status-bar success';
+                        buildLegend();
+                        legend.style.display = 'flex';
+                    } else {
+                        canvasWrapper.classList.remove('solved');
+                        statusBar.textContent = '❌ 未找到可行解，请返回修改数字';
+                        statusBar.className = 'status-bar error';
+                        legend.style.display = 'none';
+                    }
+                }
+            }
+
+            function updateStatusForInput() {
+                const count = countFilledCells();
+                if (count === 0) {
+                    statusBar.textContent = '请选择数字后点击方格填入（当前选中: ' + selectedNumber + '）';
+                } else {
+                    statusBar.textContent = '已填入 ' + count + ' 个数字（当前选中: ' + selectedNumber + '），点击方格填入，右键清除';
+                }
+                statusBar.className = 'status-bar';
+            }
+
+            function countFilledCells() {
+                let count = 0;
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        if (grid[r][c] > 0) count++;
+                    }
+                }
+                return count;
+            }
+
+            function buildNumberPicker() {
+                numberPicker.innerHTML = '';
+                const label = document.createElement('span');
+                label.style.cssText = 'font-weight:600;color:var(--text);font-size:0.85rem;';
+                label.textContent = '选择数字:';
+                numberPicker.appendChild(label);
+
+                // 预设数字按钮 1-9
+                for (let i = 1; i <= 9; i++) {
+                    const btn = document.createElement('button');
+                    btn.className = 'num-btn';
+                    if (i === selectedNumber) btn.classList.add('selected');
+                    btn.textContent = i;
+                    btn.addEventListener('click', () => {
+                        selectedNumber = i;
+                        buildNumberPicker();
+                        updateStatusForInput();
+                        draw();
+                    });
+                    numberPicker.appendChild(btn);
+                }
+                // 自定义输入
+                const customInput = document.createElement('input');
+                customInput.type = 'number';
+                customInput.className = 'num-custom';
+                customInput.min = '1';
+                customInput.max = String(n * m);
+                customInput.placeholder = '自定义';
+                customInput.value = selectedNumber > 9 ? selectedNumber : '';
+                if (selectedNumber > 9) customInput.classList.add('selected');
+                customInput.addEventListener('focus', () => {
+                    selectedNumber = parseInt(customInput.value) || selectedNumber;
+                    if (selectedNumber < 1) selectedNumber = 1;
+                    buildNumberPicker();
+                    updateStatusForInput();
+                    draw();
+                });
+                customInput.addEventListener('input', () => {
+                    let val = parseInt(customInput.value);
+                    if (!isNaN(val) && val >= 1) {
+                        selectedNumber = val;
+                    }
+                    buildNumberPicker();
+                    updateStatusForInput();
+                    draw();
+                });
+                customInput.addEventListener('change', () => {
+                    let val = parseInt(customInput.value);
+                    if (isNaN(val) || val < 1) {
+                        customInput.value = '';
+                        selectedNumber = 1;
+                    } else {
+                        selectedNumber = Math.min(val, n * m);
+                        customInput.value = selectedNumber;
+                    }
+                    buildNumberPicker();
+                    updateStatusForInput();
+                    draw();
+                });
+                numberPicker.appendChild(customInput);
+
+                // 清除按钮（橡皮擦）
+                const eraseBtn = document.createElement('button');
+                eraseBtn.className = 'num-btn';
+                eraseBtn.style.cssText = 'background:#fef2f2;border-color:#fecaca;font-size:1.2rem;';
+                eraseBtn.textContent = '🧹';
+                eraseBtn.title = '擦除模式（点击清除格子）';
+                if (selectedNumber === -1) eraseBtn.classList.add('selected');
+                eraseBtn.addEventListener('click', () => {
+                    selectedNumber = selectedNumber === -1 ? 1 : -1;
+                    buildNumberPicker();
+                    updateStatusForInput();
+                    draw();
+                });
+                numberPicker.appendChild(eraseBtn);
+            }
+
+            function buildLegend() {
+                legend.innerHTML = '';
+                if (!solution) return;
+                const seenColors = new Set();
+                const uniqueSolutions = [];
+                for (const sol of solution) {
+                    if (!seenColors.has(sol.color)) {
+                        seenColors.add(sol.color);
+                        uniqueSolutions.push(sol);
+                    }
+                }
+                for (const sol of uniqueSolutions) {
+                    const item = document.createElement('div');
+                    item.className = 'legend-item';
+                    const swatch = document.createElement('div');
+                    swatch.className = 'legend-swatch';
+                    swatch.style.backgroundColor = sol.color;
+                    const label = document.createElement('span');
+                    // 找到对应数字
+                    const cellVal = grid[sol.cellRow] ? grid[sol.cellRow][sol.cellCol] : '?';
+                    label.textContent = `数字${cellVal}: ${(sol.bottom-sol.top+1)}×${(sol.right-sol.left+1)}`;
+                    item.appendChild(swatch);
+                    item.appendChild(label);
+                    legend.appendChild(item);
+                }
+            }
+
+            // ==================== 绘制 ====================
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 背景
+                ctx.fillStyle = '#fdfdfd';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制求解结果的长方形（半透明）
+                if (solution && currentPhase === 'solve') {
+                    for (const rect of solution) {
+                        const x = rect.left * cellSize;
+                        const y = rect.top * cellSize;
+                        const w = (rect.right - rect.left + 1) * cellSize;
+                        const h = (rect.bottom - rect.top + 1) * cellSize;
+
+                        // 填充
+                        ctx.fillStyle = rect.color + '55'; // 半透明
+                        ctx.fillRect(x, y, w, h);
+
+                        // 边框
+                        ctx.strokeStyle = rect.color;
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+
+                        // 圆角小标记在包含数字的格子上
+                        const cx = rect.cellCol * cellSize + cellSize / 2;
+                        const cy = rect.cellRow * cellSize + cellSize / 2;
+                        ctx.fillStyle = rect.color + 'CC';
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, cellSize * 0.22, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+
+                // 绘制网格线
+                ctx.strokeStyle = '#d0d5dd';
+                ctx.lineWidth = 1;
+                for (let r = 0; r <= n; r++) {
+                    const y = r * cellSize;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(m * cellSize, y);
+                    ctx.stroke();
+                }
+                for (let c = 0; c <= m; c++) {
+                    const x = c * cellSize;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, n * cellSize);
+                    ctx.stroke();
+                }
+
+                // 绘制有数字的格子背景（输入阶段）
+                if (currentPhase === 'input') {
+                    for (let r = 0; r < n; r++) {
+                        for (let c = 0; c < m; c++) {
+                            if (grid[r][c] > 0) {
+                                const x = c * cellSize;
+                                const y = r * cellSize;
+                                ctx.fillStyle = '#fef9e7';
+                                ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                            }
+                        }
+                    }
+                }
+
+                // 绘制悬停高亮（输入阶段）
+                if (currentPhase === 'input' && hoverCell && hoverCell.row >= 0 && hoverCell.row < n && hoverCell
+                    .col >= 0 && hoverCell.col < m) {
+                    const x = hoverCell.col * cellSize;
+                    const y = hoverCell.row * cellSize;
+                    ctx.fillStyle = 'rgba(79,110,247,0.15)';
+                    ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+                    ctx.strokeStyle = 'rgba(79,110,247,0.6)';
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(x + 1.5, y + 1.5, cellSize - 3, cellSize - 3);
+                }
+
+                // 绘制数字
+                ctx.fillStyle = '#1e293b';
+                ctx.font = `bold ${Math.max(13, cellSize * 0.4)}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        if (grid[r][c] > 0) {
+                            const cx = c * cellSize + cellSize / 2;
+                            const cy = r * cellSize + cellSize / 2;
+                            // 如果在求解阶段且有solution，数字可能已被圆圈覆盖，用白色绘制
+                            if (currentPhase === 'solve' && solution) {
+                                // 检查该格子是否被solution中的圆圈标记
+                                let isMarked = false;
+                                for (const sol of solution) {
+                                    if (sol.cellRow === r && sol.cellCol === c) {
+                                        isMarked = true;
+                                        break;
+                                    }
+                                }
+                                if (isMarked) {
+                                    ctx.fillStyle = '#fff';
+                                    ctx.font =
+                                        `bold ${Math.max(12, cellSize * 0.35)}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+                                } else {
+                                    ctx.fillStyle = '#1e293b';
+                                    ctx.font =
+                                        `bold ${Math.max(13, cellSize * 0.4)}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+                                }
+                            } else {
+                                ctx.fillStyle = '#1e293b';
+                                ctx.font =
+                                    `bold ${Math.max(13, cellSize * 0.4)}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+                            }
+                            ctx.fillText(String(grid[r][c]), cx, cy);
+                        }
+                    }
+                }
+
+                // 绘制行列标签（小号）
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = `${Math.max(9, cellSize * 0.22)}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                for (let c = 0; c < m; c++) {
+                    ctx.fillText(String(c + 1), c * cellSize + cellSize / 2, 1);
+                }
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                for (let r = 0; r < n; r++) {
+                    ctx.fillText(String(r + 1), 8, r * cellSize + cellSize / 2);
+                }
+            }
+
+            // ==================== Canvas事件处理 ====================
+            function getCellFromEvent(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (e.clientX - rect.left) * scaleX;
+                const y = (e.clientY - rect.top) * scaleY;
+                const col = Math.floor(x / cellSize);
+                const row = Math.floor(y / cellSize);
+                if (row >= 0 && row < n && col >= 0 && col < m) {
+                    return { row, col };
+                }
+                return null;
+            }
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (currentPhase !== 'input') return;
+                const cell = getCellFromEvent(e);
+                if (cell && (!hoverCell || hoverCell.row !== cell.row || hoverCell.col !== cell.col)) {
+                    hoverCell = cell;
+                    draw();
+                    // 更新状态栏显示坐标
+                    updateStatusWithCoord(cell);
+                } else if (!cell && hoverCell) {
+                    hoverCell = null;
+                    draw();
+                    updateStatusForInput();
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                if (currentPhase === 'input') {
+                    hoverCell = null;
+                    draw();
+                    updateStatusForInput();
+                }
+            });
+
+            function updateStatusWithCoord(cell) {
+                const count = countFilledCells();
+                const val = grid[cell.row][cell.col];
+                const valStr = val > 0 ? ` [已填: ${val}]` : '';
+                statusBar.textContent =
+                    `已填入 ${count} 个数字 | 悬停: 第${cell.row+1}行 第${cell.col+1}列${valStr} | 当前选中数字: ${selectedNumber === -1 ? '🧹擦除' : selectedNumber}`;
+                statusBar.className = 'status-bar';
+            }
+
+            canvas.addEventListener('click', (e) => {
+                if (currentPhase !== 'input') return;
+                const cell = getCellFromEvent(e);
+                if (!cell) return;
+
+                if (selectedNumber === -1) {
+                    // 擦除模式
+                    if (grid[cell.row][cell.col] > 0) {
+                        grid[cell.row][cell.col] = 0;
+                        draw();
+                        updateStatusForInput();
+                    }
+                } else {
+                    // 填入数字
+                    if (grid[cell.row][cell.col] === selectedNumber) {
+                        // 点击相同数字则清除
+                        grid[cell.row][cell.col] = 0;
+                    } else {
+                        grid[cell.row][cell.col] = selectedNumber;
+                    }
+                    draw();
+                    updateStatusForInput();
+                    if (hoverCell && hoverCell.row === cell.row && hoverCell.col === cell.col) {
+                        updateStatusWithCoord(cell);
+                    }
+                }
+            });
+
+            canvas.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (currentPhase !== 'input') return;
+                const cell = getCellFromEvent(e);
+                if (cell && grid[cell.row][cell.col] > 0) {
+                    grid[cell.row][cell.col] = 0;
+                    draw();
+                    updateStatusForInput();
+                }
+            });
+
+            // 触摸支持
+            canvas.addEventListener('touchstart', (e) => {
+                if (currentPhase !== 'input') return;
+                if (e.touches.length === 1) {
+                    const cell = getCellFromEvent(e.touches[0]);
+                    if (cell) {
+                        hoverCell = cell;
+                        if (selectedNumber === -1) {
+                            if (grid[cell.row][cell.col] > 0) {
+                                grid[cell.row][cell.col] = 0;
+                                draw();
+                                updateStatusForInput();
+                            }
+                        } else {
+                            if (grid[cell.row][cell.col] === selectedNumber) {
+                                grid[cell.row][cell.col] = 0;
+                            } else {
+                                grid[cell.row][cell.col] = selectedNumber;
+                            }
+                            draw();
+                            updateStatusForInput();
+                        }
+                    }
+                }
+                e.preventDefault();
+            }, { passive: false });
+
+            // ==================== 求解算法 ====================
+            function solve() {
+                // 收集所有有数字的格子
+                const cellsWithNumbers = [];
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        if (grid[r][c] > 0) {
+                            cellsWithNumbers.push({ row: r, col: c, value: grid[r][c] });
+                        }
+                    }
+                }
+
+                if (cellsWithNumbers.length === 0) {
+                    return null; // 没有数字，无需求解
+                }
+
+                // 检查基本可行性：每个数字不能超过n*m
+                for (const cell of cellsWithNumbers) {
+                    if (cell.value > n * m) {
+                        return null; // 数字太大
+                    }
+                }
+
+                // 为每个格子预计算所有可能的矩形
+                const possibleRects = [];
+                for (const cell of cellsWithNumbers) {
+                    const rects = getAllPossibleRectangles(cell.row, cell.col, cell.value);
+                    if (rects.length === 0) {
+                        return null; // 该格子无可行矩形
+                    }
+                    possibleRects.push({
+                        cell: cell,
+                        rects: rects,
+                    });
+                }
+
+                // 按可能矩形数量升序排序（MRV启发式）
+                possibleRects.sort((a, b) => a.rects.length - b.rects.length);
+
+                // 回溯搜索
+                const assignedRects = []; // {top, left, bottom, right}
+                const result = backtrack(possibleRects, 0, assignedRects);
+                return result;
+            }
+
+            function getAllPossibleRectangles(row, col, value) {
+                const rects = [];
+                // 枚举所有因数对
+                for (let h = 1; h <= value; h++) {
+                    if (value % h !== 0) continue;
+                    const w = value / h;
+                    // 检查h×w是否在网格范围内
+                    if (h > n || w > m) continue;
+                    // 枚举所有包含(row, col)的h×w矩形位置
+                    const topStart = Math.max(0, row - h + 1);
+                    const topEnd = Math.min(row, n - h);
+                    const leftStart = Math.max(0, col - w + 1);
+                    const leftEnd = Math.min(col, m - w);
+                    for (let top = topStart; top <= topEnd; top++) {
+                        for (let left = leftStart; left <= leftEnd; left++) {
+                            const bottom = top + h - 1;
+                            const right = left + w - 1;
+                            if (bottom < n && right < m && top <= row && row <= bottom && left <= col && col <= right) {
+                                rects.push({ top, left, bottom, right });
+                            }
+                        }
+                    }
+                }
+                // 去重
+                const uniqueRects = [];
+                const seen = new Set();
+                for (const r of rects) {
+                    const key = `${r.top},${r.left},${r.bottom},${r.right}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        uniqueRects.push(r);
+                    }
+                }
+                return uniqueRects;
+            }
+
+            function backtrack(possibleRects, index, assignedRects) {
+                if (index >= possibleRects.length) {
+                    // 所有格子都分配成功
+                    return [...assignedRects];
+                }
+
+                const { cell, rects } = possibleRects[index];
+
+                for (const rect of rects) {
+                    // 检查是否与已分配的矩形重叠
+                    if (isOverlappingWithAny(rect, assignedRects)) {
+                        continue;
+                    }
+                    // 不重叠，尝试分配
+                    assignedRects.push(rect);
+                    const result = backtrack(possibleRects, index + 1, assignedRects);
+                    if (result) {
+                        return result;
+                    }
+                    assignedRects.pop();
+                }
+                return null; // 所有矩形都冲突
+            }
+
+            function isOverlappingWithAny(rect, assignedRects) {
+                for (const other of assignedRects) {
+                    if (rectsOverlap(rect, other)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function rectsOverlap(a, b) {
+                // 两个矩形重叠的条件
+                return !(a.bottom < b.top || a.top > b.bottom || a.right < b.left || a.left > b.right);
+            }
+
+            // ==================== 按钮事件 ====================
+            btnGenerate.addEventListener('click', () => {
+                const newN = parseInt(inputN.value);
+                const newM = parseInt(inputM.value);
+                if (isNaN(newN) || isNaN(newM) || newN < 1 || newM < 1 || newN > 15 || newM > 15) {
+                    alert('请输入有效的行数和列数（1-15之间）');
+                    return;
+                }
+                n = newN;
+                m = newM;
+                initGrid();
+                currentPhase = 'input';
+                selectedNumber = 1;
+                updatePhaseUI();
+                buildNumberPicker();
+                draw();
+                statusBar.textContent = '方格表已生成！请选择数字后点击方格填入';
+                statusBar.className = 'status-bar';
+            });
+
+            btnSolve.addEventListener('click', () => {
+                const count = countFilledCells();
+                if (count === 0) {
+                    alert('请先在方格中填入至少一个数字！');
+                    return;
+                }
+                // 执行求解
+                const rawSolution = solve();
+                if (rawSolution) {
+                    // 为每个解分配颜色并记录对应的格子
+                    const cellsWithNumbers = [];
+                    for (let r = 0; r < n; r++) {
+                        for (let c = 0; c < m; c++) {
+                            if (grid[r][c] > 0) cellsWithNumbers.push({ row: r, col: c, value: grid[r][c] });
+                        }
+                    }
+                    // 将解与格子关联
+                    solution = rawSolution.map((rect, i) => {
+                        // 找到被该矩形包含的有数字的格子
+                        let matchedCell = null;
+                        for (const cell of cellsWithNumbers) {
+                            if (cell.row >= rect.top && cell.row <= rect.bottom &&
+                                cell.col >= rect.left && cell.col <= rect.right &&
+                                grid[cell.row][cell.col] === (rect.bottom - rect.top + 1) * (rect.right -
+                                    rect.left + 1)) {
+                                // 检查该格子是否已被匹配
+                                const alreadyMatched = rawSolution.slice(0, i).some((r2, j2) => {
+                                    const s2 = solution && solution[j2];
+                                    return s2 && s2.cellRow === cell.row && s2.cellCol === cell.col;
+                                });
+                                if (!alreadyMatched) {
+                                    matchedCell = cell;
+                                    break;
+                                }
+                            }
+                        }
+                        // 如果没找到精确匹配，找第一个未被匹配的
+                        if (!matchedCell) {
+                            for (const cell of cellsWithNumbers) {
+                                const alreadyMatched = rawSolution.slice(0, i).some((r2, j2) => {
+                                    const s2 = solution && solution[j2];
+                                    return s2 && s2.cellRow === cell.row && s2.cellCol === cell.col;
+                                });
+                                if (!alreadyMatched && cell.row >= rect.top && cell.row <= rect.bottom &&
+                                    cell.col >= rect.left && cell.col <= rect.right) {
+                                    matchedCell = cell;
+                                    break;
+                                }
+                            }
+                        }
+                        return {
+                            ...rect,
+                            cellRow: matchedCell ? matchedCell.row : rect.top,
+                            cellCol: matchedCell ? matchedCell.col : rect.left,
+                            color: colorPalette[i % colorPalette.length],
+                        };
+                    });
+                    currentPhase = 'solve';
+                    updatePhaseUI();
+                    draw();
+                } else {
+                    solution = null;
+                    currentPhase = 'solve';
+                    updatePhaseUI();
+                    draw();
+                }
+            });
+
+            btnClearAll.addEventListener('click', () => {
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        grid[r][c] = 0;
+                    }
+                }
+                solution = null;
+                draw();
+                updateStatusForInput();
+            });
+
+            btnRandomFill.addEventListener('click', () => {
+                // 清除现有
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        grid[r][c] = 0;
+                    }
+                }
+                // 随机填入一些数字
+                const maxCells = Math.min(n * m, 6);
+                const numCells = Math.max(1, Math.floor(Math.random() * maxCells) + 1);
+                const allPositions = [];
+                for (let r = 0; r < n; r++) {
+                    for (let c = 0; c < m; c++) {
+                        allPositions.push({ row: r, col: c });
+                    }
+                }
+                // 打乱
+                for (let i = allPositions.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [allPositions[i], allPositions[j]] = [allPositions[j], allPositions[i]];
+                }
+                const chosen = allPositions.slice(0, numCells);
+                for (const pos of chosen) {
+                    // 随机数字1到min(9, n*m)
+                    const maxVal = Math.min(9, n * m);
+                    grid[pos.row][pos.col] = Math.floor(Math.random() * maxVal) + 1;
+                }
+                selectedNumber = 1;
+                buildNumberPicker();
+                draw();
+                updateStatusForInput();
+            });
+
+            btnReset.addEventListener('click', () => {
+                if (countFilledCells() > 0) {
+                    if (!confirm('确定要重新设置方格表大小吗？当前填入的数字将被清除。')) return;
+                }
+                currentPhase = 'prepare';
+                solution = null;
+                grid = [];
+                initGrid();
+                updatePhaseUI();
+                draw();
+                statusBar.textContent = '请输入行数和列数，然后点击"生成方格表"';
+                statusBar.className = 'status-bar';
+                legend.style.display = 'none';
+            });
+
+            btnBackToInput.addEventListener('click', () => {
+                currentPhase = 'input';
+                solution = null;
+                hoverCell = null;
+                selectedNumber = 1;
+                updatePhaseUI();
+                buildNumberPicker();
+                draw();
+                updateStatusForInput();
+                legend.style.display = 'none';
+                canvasWrapper.classList.remove('solved');
+            });
+
+            btnRestart.addEventListener('click', () => {
+                currentPhase = 'prepare';
+                solution = null;
+                grid = [];
+                hoverCell = null;
+                selectedNumber = 1;
+                initGrid();
+                updatePhaseUI();
+                draw();
+                statusBar.textContent = '请输入行数和列数，然后点击"生成方格表"';
+                statusBar.className = 'status-bar';
+                legend.style.display = 'none';
+                canvasWrapper.classList.remove('solved');
+            });
+
+            // 预设按钮
+            document.getElementById('btnPreset1').addEventListener('click', () => {
+                inputN.value = '3';
+                inputM.value = '3';
+                n = 3;
+                m = 3;
+                initGrid();
+                currentPhase = 'input';
+                selectedNumber = 1;
+                updatePhaseUI();
+                buildNumberPicker();
+                draw();
+                statusBar.textContent = '方格表已生成（3×3）！请选择数字后点击方格填入';
+                statusBar.className = 'status-bar';
+            });
+            document.getElementById('btnPreset2').addEventListener('click', () => {
+                inputN.value = '5';
+                inputM.value = '5';
+                n = 5;
+                m = 5;
+                initGrid();
+                currentPhase = 'input';
+                selectedNumber = 1;
+                updatePhaseUI();
+                buildNumberPicker();
+                draw();
+                statusBar.textContent = '方格表已生成（5×5）！请选择数字后点击方格填入';
+                statusBar.className = 'status-bar';
+            });
+            document.getElementById('btnPreset3').addEventListener('click', () => {
+                inputN.value = '6';
+                inputM.value = '8';
+                n = 6;
+                m = 8;
+                initGrid();
+                currentPhase = 'input';
+                selectedNumber = 1;
+                updatePhaseUI();
+                buildNumberPicker();
+                draw();
+                statusBar.textContent = '方格表已生成（6×8）！请选择数字后点击方格填入';
+                statusBar.className = 'status-bar';
+            });
+
+            // ==================== 键盘快捷键 ====================
+            document.addEventListener('keydown', (e) => {
+                if (currentPhase === 'input') {
+                    if (e.key >= '1' && e.key <= '9') {
+                        selectedNumber = parseInt(e.key);
+                        buildNumberPicker();
+                        updateStatusForInput();
+                        draw();
+                    } else if (e.key === '0') {
+                        selectedNumber = 10;
+                        buildNumberPicker();
+                        updateStatusForInput();
+                        draw();
+                    } else if (e.key === 'Escape' || e.key === 'Delete') {
+                        selectedNumber = -1;
+                        buildNumberPicker();
+                        updateStatusForInput();
+                        draw();
+                    } else if (e.key === 'Enter') {
+                        btnSolve.click();
+                    }
+                }
+                if (currentPhase === 'solve' && e.key === 'Escape') {
+                    btnBackToInput.click();
+                }
+            });
+
+            // ==================== 初始启动 ====================
+            function initialStartup() {
+                inputN.value = '5';
+                inputM.value = '5';
+                n = 5;
+                m = 5;
+                initGrid();
+                currentPhase = 'prepare';
+                updatePhaseUI();
+                draw();
+                statusBar.textContent = '请输入行数和列数，然后点击"生成方格表"';
+                statusBar.className = 'status-bar';
+            }
+
+            initialStartup();
+        })();
+    </script>
+</body>
+</html>
